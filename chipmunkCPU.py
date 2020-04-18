@@ -124,8 +124,9 @@ class Chip8_Exeggutor:
             # pass # skip drawing for now nope, need it now
             self.machine.i = self.machine.registers[x] * 5 # 5B per sprite
         elif opcode & 0xF000 == 0x7000: # 0x7xkk: set Vx = Vx + kk
-            temp = self.machine.registers[x] + kk
-            self.machine.registers[x] = temp if temp < 255 else temp - 255
+            if self.machine.registers[x] + kk > 255:
+                self.machine.registers[x] -= 256
+            self.machine.registers[x] += kk
         elif opcode & 0xF00F == 0xF007: # 0xFx07: set Vx to DT
             self.machine.registers[x] = self.machine.delaytimer
         elif opcode & 0xF000 == 0x3000: # 0x3xkk: skip next instruction if Vx == kk
@@ -150,11 +151,12 @@ class Chip8_Exeggutor:
                 self.machine.pc += 2
         elif opcode & 0xF00F == 0x8004: # 0x8xy4: set Vx = Vx+Vy, set VF = carry
             result = self.machine.registers[x] + self.machine.registers[y]
-            self.machine.registers[x] = result % 255 # only lower 8 bits
             if result > 255:
                 self.machine.registers[0xF] = 1 # set carry
+                self.machine.registers[x] -= 256
             else:
                 self.machine.registers[0xF] = 0 # don't set carry
+            self.machine.registers[x] += self.machine.registers[y]
         elif opcode & 0xF000 == 0x1000: # 0x1nnn: JMP to adress nnn
             self.machine.pc = nnn - 2
         elif opcode & 0x00FF == 0x00E0: # 0x00E0: CLS
@@ -172,7 +174,30 @@ class Chip8_Exeggutor:
         elif opcode & 0xF00F == 0x5000: # 0x5xy0: skip next instruction if Vx == Vy
             if self.machine.registers[x] == self.machine.registers[y]:
                 self.machine.pc += 2
-        
+        elif opcode & 0xF00F == 0x9000: # 0x9000: skip next instruction if Vx != Vy
+            if self.machine.registers[x] != self.machine.registers[y]:
+                self.machine.pc += 2
+        elif opcode & 0xF00F == 0x8001: # 0x8001: set Vx = Vx OR Vy
+            self.machine.registers[x] = self.machine.registers[x] | self.machine.registers[y]
+        elif opcode & 0xF00F == 0x8003: # 0x8003: set Vx = Vx XOR Vy
+            self.machine.registers[x] = self.machine.registers[x] ^ self.machine.registers[y]
+        elif opcode & 0xF00F == 0x8005: # 0x8005: set Vx = Vx - Vy
+            if self.machine.registers[x] > self.machine.registers[y]:
+                self.machine.registers[0xF] = 1
+            else:
+                self.machine.registers[x] += 256
+                self.machine.registers[0xF] = 0
+            self.machine.registers[x] -= self.machine.registers[y]
+        elif opcode & 0xF00F == 0x8006: # 0x8006: Set Vx = Vx SHR 1
+            zero_bit = self.machine.registers[x] & 1
+            self.machine.registers[y] = self.machine.registers[x] >> 1
+            self.machine.registers[0xF] = zero_bit
+        elif opcode & 0xF00F == 0x800E: # 0x800E: Set Vx = Vx SHL 1
+            self.machine.registers[0xF] = self.machine.registers[x] >> 8
+            self.machine.registers[y] = self.machine.registers[x] << 1
+        elif opcode & 0xF0FF == 0xF055: # 0xFx55: write registers V0 through Vx to memory starting at location I
+            for V in range(x + 1):
+               self.machine.mem[self.machine.i + V] = self.machine.registers[V] # UNO REVERSE of Fx65
         else:
             print("chipmunk: execution error: unknown opcode "+hex(opcode))
             raise Exception

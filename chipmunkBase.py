@@ -112,7 +112,7 @@ def gfx(chip8):
         sleep(1/60)
 if __name__ == "__main__":
     chip8 = Chip8_Base(debugState=True)
-    chip8.LoadROM("test_opcode.ch8")
+    chip8.LoadROM("invaders.ch8")
     print("chipmunk: chip8 emulator/debugger")
     print("Please select command: s for step, c for infinite run, ldrom for loading rom")
     while True:
