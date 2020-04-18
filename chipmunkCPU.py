@@ -79,6 +79,7 @@ class Chip8_Exeggutor:
             # pass # skip drawing for now, need a solid CPU emulation first ### Time for DRAWING!!
             reg_x_coordinate = self.machine.registers[x]
             reg_y_coordinate = self.machine.registers[y]
+            self.drawflag = True    
             self.machine.registers[0xF] = 0
             for y_offset in range(n): # y_offset is row of sprite
                 sprite_int = self.machine.mem[y_offset + self.machine.i]
@@ -92,7 +93,10 @@ class Chip8_Exeggutor:
                     actual_x_coordinate = reg_x_coordinate + x_offset
 
                     gfx_mem_index = actual_y_coordinate * 64 + actual_x_coordinate
-                    pixel = self.machine.vram[gfx_mem_index]
+                    try:
+                        pixel = self.machine.vram[gfx_mem_index]
+                    except:
+                        return
                     # XOR written like this for clarity
                     if int(bit) == 1 and pixel == 1:
                         self.machine.registers[0xF] = 1
@@ -198,6 +202,12 @@ class Chip8_Exeggutor:
         elif opcode & 0xF0FF == 0xF055: # 0xFx55: write registers V0 through Vx to memory starting at location I
             for V in range(x + 1):
                self.machine.mem[self.machine.i + V] = self.machine.registers[V] # UNO REVERSE of Fx65
+        elif opcode & 0xF0FF == 0xE09E: # 0xEx9E: if key Vx is pressed, pc+=2
+            key = self.machine.registers[x]
+            if self.machine.keyinput[key] == 1:
+                self.machine.pc += 2
+        elif opcode & 0xF0FF == 0xF018: # set sound timer to Vx
+            self.machine.soundtimer = self.machine.registers[x]
         else:
             print("chipmunk: execution error: unknown opcode "+hex(opcode))
             raise Exception
