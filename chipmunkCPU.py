@@ -37,10 +37,18 @@ class Chip8_Base:
             dotbin = rom.read()
         for ip, vs in enumerate(dotbin):
             self.mem[self.pc+ip] = vs # enumerate handy here
+    def checkIntegrity(self):
+        ctr = 0
+        for register in self.registers:
+            if register > 255:
+                print("Integrity check failure: V{} is bigger than 255".format(ctr))
+                self.registers[ctr] = self.registers[ctr] % 255
+            ctr += 1
     def Process(self):
         opcode = self.mem[self.pc] << 8 | self.mem[self.pc+1]
         self.currentOp = opcode
         self.ExecutionEngine.run_instruction(opcode)
+        self.checkIntegrity()
 
 class Chip8_Exeggutor:
     def __init__(self, base):
@@ -64,7 +72,7 @@ class Chip8_Exeggutor:
         if opcode == 0x00EE: # 0x00E: return from a subroutine, need to set PC to the last value on stack, then remove that value from stack
             self.machine.pc = self.machine.stack.pop()
         elif opcode & 0xF000 == 0x6000: # 0x6xkk: set V[x] == kk(got LULZ when writing this)
-            self.machine.registers[x] == kk
+            self.machine.registers[x] = kk
         elif opcode & 0xF000 == 0xA000: # 0xAnnn: set I = nnn
             self.machine.i = nnn
         elif opcode & 0xF000 == 0xD000: # 0xDxyn: draw n-byte sprite in memory I at (Vx, Vy), set VF = collision
@@ -111,14 +119,13 @@ class Chip8_Exeggutor:
             self.machine.mem[self.machine.i+1] = value % 10 # units
         elif opcode & 0xF0FF == 0xF065: # 0xFx65: read registers V0 through Vx from memory starting at location I
             for V in range(x):
-                #self.machine.mem[self.machine.i + 2*V] = self.machine.registers[V] # not a good solution probably ############ IT WAS A BAD SOLUTION, IT WASNT RIGHT!
                 self.machine.registers[V] = self.machine.mem[self.machine.i + V]
         elif opcode & 0xF0FF == 0xF029: # 0xFx29: set I = location of sprite for digit Vx
             # pass # skip drawing for now nope, need it now
             self.machine.i = self.machine.registers[x] * 5 # 5B per sprite
         elif opcode & 0xF000 == 0x7000: # 0x7xkk: set Vx = Vx + kk
-            self.machine.registers[x] = (self.machine.registers[x] + kk) % 255
-            self.machine.registers[0xF] = 1 if self.machine.registers[x] + kk > 255 else 0 # Do we need that carry flag? It's undocumented!
+            temp = self.machine.registers[x] + kk
+            self.machine.registers[x] = temp if temp < 255 else temp - 255
         elif opcode & 0xF00F == 0xF007: # 0xFx07: set Vx to DT
             self.machine.registers[x] = self.machine.delaytimer
         elif opcode & 0xF000 == 0x3000: # 0x3xkk: skip next instruction if Vx == kk
@@ -162,6 +169,10 @@ class Chip8_Exeggutor:
                     raise Exception("Ctrl+C on ... thing")
         elif opcode & 0xF0FF == 0xF01E: # 0xFx1E: set I = I + Vx
             self.machine.i = self.machine.i + self.machine.registers[x]
+        elif opcode & 0xF00F == 0x5000: # 0x5xy0: skip next instruction if Vx == Vy
+            if self.machine.registers[x] == self.machine.registers[y]:
+                self.machine.pc += 2
+        
         else:
             print("chipmunk: execution error: unknown opcode "+hex(opcode))
             raise Exception

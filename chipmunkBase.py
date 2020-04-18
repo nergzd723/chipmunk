@@ -1,6 +1,12 @@
 from chipmunkCPU import *
 import curses
 from time import sleep
+clock_delay = 1/60
+def getDelay():
+    return clock_delay
+def setDelay(delay):
+    global clock_delay
+    clock_delay = delay
 keypad = {
     "1" : 0x1, "2" : 0x2, "3" : 0x3, "4" : 0xC,
     "q" : 0x4, "w" : 0x5, "e" : 0x6, "r" : 0xD,
@@ -14,6 +20,7 @@ def main(chipchip):
     i = input(">>> ")
     if i == "s":
         chipchip.Process()
+        processTimers(chipchip)
     elif i[:5] == "ldrom":
         rom = i.split(" ")
         print("Loading rom "+rom[1])
@@ -23,9 +30,12 @@ def main(chipchip):
                 try:
                     chipchip.Process()
                     processTimers(chipchip)
-                    sleep(1/60)
-                except:
+                    sleep(clock_delay)
+                except Exception as e:
                     print("Error: stopping now")
+                    print(e)
+                    return
+                except KeyboardInterrupt:
                     return
     elif i == "dump":
         print("pc:"+hex(chipchip.pc))
@@ -47,7 +57,14 @@ def main(chipchip):
                     string = string + " "
                 ctr+=1
             print(string)
-    processTimers(chipchip)
+        elif toDump == "registers":
+            ctr = 0
+            for register in chipchip.registers:
+                print("V"+str(ctr)+":"+str(register))
+                ctr+=1
+    elif i[:5] == "delay":
+        delay = i.split(" ")[1]
+        setDelay(float(delay))
 def render(stdscr, chip8CPU):
     stdscr.clear()
     stdscr.refresh()
@@ -95,7 +112,7 @@ def gfx(chip8):
         sleep(1/60)
 if __name__ == "__main__":
     chip8 = Chip8_Base(debugState=True)
-    chip8.LoadROM("logo.ch8")
+    chip8.LoadROM("test_opcode.ch8")
     print("chipmunk: chip8 emulator/debugger")
     print("Please select command: s for step, c for infinite run, ldrom for loading rom")
     while True:
